@@ -1,91 +1,83 @@
-import { Component, OnInit } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ApiService } from './api.service';
-
-interface User {
-  id?: number;
-  name: string;
-  email: string;
-}
+import { User } from './models/user.model';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css'],
+  imports: [CommonModule, FormsModule],
 })
-export class AppComponent implements OnInit {
+export class AppComponent {
   users: User[] = [];
-  newUser: User = { id: 0, name: '', email: '' };
+  newUser: User = { name: '', email: '' };
   editedUser: User | null = null;
-  isLoading = {
-    addUser: false,
-  };
+  isLoading = { addUser: false };
 
   constructor(private apiService: ApiService) {}
 
-  ngOnInit(): void {
-    this.loadData();
+  ngOnInit() {
+    this.apiService.getUsers().then((data) => {
+      this.users = data;
+    });
   }
 
   async addUser() {
-    if (!this.newUser.name || !this.newUser.email) {
-      console.error('Заполните все поля!');
-      return;
-    }
-    this.isLoading.addUser = true;
-    const user: User = { ...this.newUser, id: Date.now() };
     try {
-      await this.apiService.addUser(user);
-      await this.loadData();
-      this.newUser = {id: 0, name: '', email: ''};
+      const { email, name } = this.newUser;
+      if (!email) {
+        throw new Error('No Email');
+      }
+      if (!name) {
+        throw new Error('No Name');
+      }
+      this.apiService.addUser(this.newUser).subscribe((user) => {
+        this.users.push(user);
+        this.newUser = { name: '', email: '' };
+      });
     } catch (e) {
-      console.error('Ошибка при добавлении пользователя:', e)
-    } finally {
-      this.isLoading.addUser = false;
+      const err = e as Error;
+      console.error(err.message);
     }
   }
 
-  editUser(user: User): void {
+  editUser(user: User) {
     this.editedUser = { ...user };
   }
 
-  updateUser(): void {
-    if (!this.editedUser) return;
-    this.apiService.updateUser(this.editedUser)
-      .then(() => {
+  updateUser() {
+    if (this.editedUser) {
+      this.apiService.updateUser(this.editedUser).subscribe(() => {
+        this.apiService.getUsers().then((data) => {
+          this.users = data;
+        });
         this.editedUser = null;
-        this.loadData();
-      })
-      .catch(error => console.error('Ошибка при обновлении пользователя:', error));
-  }
-
-  deleteUser(id: number): void {
-    this.apiService.deleteUser(id)
-      .then(() => this.loadData())
-      .catch(error => console.error('Ошибка при удалении пользователя:', error));
-  }
-
-  saveData(): void {
-    console.log('✅ Данные сохранены в Local Storage');
-  }
-
-  async loadData() {
-    try {
-      this.users = await this.apiService.getUsers();
-    } catch (error) {
-      console.error('Ошибка при загрузке данных:', error);
+      });
     }
   }
 
-  deleteData(): void {
-    this.apiService.clearUsers()
-      .then(() => {
-        this.users = [];
-        console.log('❌ Данные удалены из Local Storage');
-      })
-      .catch(error => console.error('Ошибка при удалении данных:', error));
+  deleteUser(id: number) {
+    this.apiService.deleteUser(id).subscribe(() => {
+      this.users = this.users.filter((user) => user.id !== id);
+    });
+  }
+
+  saveData() {
+    localStorage.setItem('users', JSON.stringify(this.users));
+  }
+
+  loadData() {
+    const data = localStorage.getItem('users');
+    if (data) {
+      this.users = JSON.parse(data);
+    }
+  }
+
+  deleteData() {
+    localStorage.removeItem('users');
+    this.users = [];
   }
 }

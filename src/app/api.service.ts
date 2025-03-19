@@ -1,55 +1,35 @@
 import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import {firstValueFrom, Observable} from 'rxjs';
 import { User } from './models/user.model';
 
+
+
+
+
+
 @Injectable({
-  providedIn: 'root',
+  providedIn: 'root'
 })
 export class ApiService {
-  private readonly storageKey = 'users';
+  private apiUrl = 'http://localhost:8080/api/users'; // Убедись, что URL правильный
+
+  constructor(private http: HttpClient) {}
 
   getUsers(): Promise<User[]> {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        try {
-          const users: User[] = JSON.parse(localStorage.getItem(this.storageKey) ?? '[]');
-          resolve(users);
-        } catch (error) {
-          reject(error);
-        }
-      }, 2000);
-    });
+    return firstValueFrom(this.http.get<User[]>(this.apiUrl));
   }
 
-  addUser(user: User): Promise<void> {
-    return this.getUsers().then(users => {
-      users.push(user);
-      localStorage.setItem(this.storageKey, JSON.stringify(users));
-    });
+  addUser(user: Omit<User, 'id' | 'createdAt' | 'updatedAt'>): Observable<User> {
+    return this.http.post<User>(this.apiUrl, user);
   }
 
-  updateUser(updatedUser: User): Promise<void> {
-    return this.getUsers().then(users => {
-      const index = users.findIndex(user => user.id === updatedUser.id);
-      if (index !== -1) {
-        users[index] = updatedUser;
-        localStorage.setItem(this.storageKey, JSON.stringify(users));
-      }
-    }, err => {
+  updateUser(user: User): Observable<User> {
+    return this.http.put<User>(`${this.apiUrl}/${user.id}`, user);
 
-    });
   }
 
-  deleteUser(id: number): Promise<void> {
-    return this.getUsers().then(users => {
-      const filteredUsers = users.filter(user => user.id !== id);
-      localStorage.setItem(this.storageKey, JSON.stringify(filteredUsers));
-    });
-  }
-
-  clearUsers(): Promise<void> {
-    return new Promise(resolve => {
-      localStorage.removeItem(this.storageKey);
-      resolve();
-    });
+  deleteUser(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/${id}`);
   }
 }

@@ -1,5 +1,7 @@
 export interface User {
-  id?: number;
+  readonly id?: number;
   name: string;
   email: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
